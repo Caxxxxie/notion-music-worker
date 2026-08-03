@@ -1,0 +1,26 @@
+# Dependencies and generated output
+node_modules/
+dist/
+dist-test/
+worker-configuration.d.ts
+*.log
+
+# Cloudflare local state and deployment configuration
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+wrangler.jsonc
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+secrets.json
+
+# Editor, operating-system, and scratch files
+.DS_Store
+.idea/
+.vscode/
+*.backup
+*.before-*
+*_files/

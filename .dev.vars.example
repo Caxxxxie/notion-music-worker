@@ -1,0 +1,3 @@
+# Used only by local development and the Notion template installer.
+NOTION_TOKEN="REPLACE_WITH_NOTION_INTEGRATION_TOKEN"
+SETUP_KEY="REPLACE_WITH_A_LONG_RANDOM_VALUE"
