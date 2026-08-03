@@ -1,6 +1,7 @@
 import { appleAlbumId, appleStorefront, baseTitle, cleanAppleTitle, largeArtworkUrl, normalizeArtist, parseApplePageMetadata, releaseGroupId, reliableMatch, type AppleAlbum, type MbMatch } from "./music";
 import { schemaCandidates, schemaForPage, type Schema } from "./config";
 import type { WorkerEnv } from "./env";
+import { searchPage } from "./search-page";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const MB_HEADERS = { "user-agent": "NotionMusicImporter/1.0 (personal music library)", accept: "application/json" };
@@ -9,6 +10,7 @@ type Page = { id: string; parent: { type: string; data_source_id?: string }; pro
 type Property = { type: string; title?: RichText[]; rich_text?: RichText[]; url?: string | null; select?: { name: string } | null; checkbox?: boolean; people?: { id: string }[]; relation?: { id: string }[] };
 type RichText = { plain_text?: string; text?: { content: string } };
 type WebhookEvent = { type?: string; entity?: { id?: string; type?: string }; verification_token?: string };
+type ApiBody = Record<string, unknown>;
 
 function textValue(p?: Property): string { return (p?.title ?? p?.rich_text ?? []).map(x => x.plain_text ?? x.text?.content ?? "").join("").trim(); }
 function urlValue(p?: Property): string { return p?.url?.trim() ?? ""; }
@@ -17,6 +19,25 @@ function richText(content: string) { return { rich_text: content ? [{ type: "tex
 function title(content: string) { return { title: [{ type: "text", text: { content: content.slice(0, 2000) } }] }; }
 function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS }); }
 function normId(id: string) { return id.replaceAll("-", ""); }
+
+async function readApiBody(request: Request): Promise<ApiBody> {
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 8_000) throw new Error("payload too large");
+  const { text, truncated } = await readTextLimited(request.body, 8_000);
+  if (truncated) throw new Error("payload too large");
+  try {
+    const value = JSON.parse(text) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid json");
+    return value as ApiBody;
+  } catch (error) {
+    if (error instanceof Error && ["payload too large", "invalid json"].includes(error.message)) throw error;
+    throw new Error("invalid json");
+  }
+}
+
+function stringField(body: ApiBody, name: string, maxLength: number) {
+  return typeof body[name] === "string" ? body[name].trim().slice(0, maxLength) : "";
+}
 
 async function notion(env: WorkerEnv, path: string, init: RequestInit = {}) {
   const response = await fetch(`https://api.notion.com/v1${path}`, {
@@ -210,6 +231,41 @@ async function ensureArtist(env: WorkerEnv, fields: Schema, mbid: string, prefer
   }); return created.id;
 }
 
+async function schemaForLibrary(env: WorkerEnv): Promise<Schema> {
+  for (const fields of schemaCandidates(env)) {
+    try {
+      await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.musicBrainzId, rich_text: { is_not_empty: true } }, 1);
+      return fields;
+    } catch { /* The library uses another supported schema. */ }
+  }
+  throw new Error("The album database does not match the English or legacy schema");
+}
+
+async function importSelectedMatch(env: WorkerEnv, fields: Schema, match: MbMatch) {
+  if (!match.artistId) throw new Error("MusicBrainz did not return an artist for this album");
+  const duplicate = await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.musicBrainzId, rich_text: { equals: match.id } });
+  const existing = duplicate.results?.[0];
+  if (existing) return { id: existing.id, alreadyExists: true };
+
+  const cover = await chooseCover("", match.id);
+  // The MusicBrainz lookup that produced this match may have happened just
+  // before this request. Pause before the artist lookup to respect its rate limit.
+  await sleep(1100);
+  const artistId = await ensureArtist(env, fields, match.artistId, match.artist, []);
+  const created = await createPage(env, env.ALBUM_DATA_SOURCE_ID, {
+    [fields.album.title]: title(match.title), [fields.album.artist]: { relation: [{ id: artistId }] },
+    [fields.album.musicBrainzId]: richText(match.id), [fields.album.musicBrainzUrl]: { url: `https://musicbrainz.org/release-group/${match.id}` },
+    [fields.album.sourceUrl]: { url: `https://musicbrainz.org/release-group/${match.id}` },
+    [fields.album.releaseDate]: match.firstReleaseDate ? { date: { start: match.firstReleaseDate } } : { date: null },
+    [fields.album.type]: { select: { name: albumType(match.primaryType) } },
+    [fields.album.status]: { select: { name: fields.values.wantToListen } },
+    [fields.album.priority]: { select: { name: fields.values.mediumPriority } },
+    [fields.album.reason]: richText(""), [fields.album.addedBy]: { people: [] },
+    ...(cover ? { [fields.album.cover]: { files: [{ type: "external", name: "cover.jpg", external: { url: cover } }] } } : {}),
+  }, cover);
+  return { id: created.id, alreadyExists: false };
+}
+
 async function importMatch(env: WorkerEnv, fields: Schema, quick: Page, match: MbMatch, apple: AppleAlbum | null, sourceUrl: string, userConfirmed = false) {
   const duplicate = await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.musicBrainzId, rich_text: { equals: match.id } });
   let albumId = duplicate.results?.[0]?.id;
@@ -345,7 +401,34 @@ async function verifySignature(raw: string, signature: string, token: string) {
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if (request.method === "GET" && ["/", "/search"].includes(url.pathname)) return searchPage();
     if (request.method === "GET" && url.pathname === "/health") return json({ ok: true, service: "notion-music-importer" });
+    if (request.method === "POST" && url.pathname.startsWith("/api/")) {
+      const supplied = request.headers.get("x-setup-key") ?? "";
+      if (!(await secretEquals(supplied, env.SETUP_KEY))) return json({ error: "invalid library key" }, 403);
+      if (url.pathname === "/api/session") return json({ ok: true });
+      try {
+        const body = await readApiBody(request);
+        if (url.pathname === "/api/search") {
+          const album = stringField(body, "album", 200);
+          const artist = stringField(body, "artist", 200);
+          if (album.length < 2) return json({ error: "enter at least two characters" }, 400);
+          const results = await mbSearch(album, artist);
+          return json({ results });
+        }
+        if (url.pathname === "/api/import") {
+          const id = releaseGroupId(stringField(body, "releaseGroupId", 100));
+          if (!id) return json({ error: "invalid MusicBrainz release group" }, 400);
+          const [fields, match] = await Promise.all([schemaForLibrary(env), mbById(id)]);
+          return json(await importSelectedMatch(env, fields, match));
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "request failed";
+        console.error(JSON.stringify({ event: "search_ui_request_failed", path: url.pathname, error: message }));
+        return json({ error: message === "payload too large" ? message : "Request could not be completed" }, message === "payload too large" ? 413 : 502);
+      }
+      return json({ error: "not found" }, 404);
+    }
     if (request.method === "POST" && url.pathname === "/refresh-existing") {
       const supplied = request.headers.get("x-setup-key") ?? "";
       if (!(await secretEquals(supplied, env.SETUP_KEY))) return json({ error: "invalid setup key" }, 403);

@@ -13,6 +13,10 @@ A small, self-hosted Cloudflare Worker for a shared Notion music library. Paste 
 - Writes one cover image to both the Notion cover and `Cover` file property.
 - Keeps tokens in Cloudflare secrets, never in source control.
 
+## Interactive search
+
+Open your deployed Worker at its root URL (or `/search`) to find MusicBrainz albums as you type and add the selected result directly to the library. The page asks for your existing `SETUP_KEY` on each visit; it is kept only in that browser tab and all search/import API calls require it. No separate hosting service or Notion database change is needed.
+
 ## Notion template
 
 Import [notion-template/Music Library.md](notion-template/Music%20Library.md), share the resulting page with your integration, and run the template installer. It creates the exact database schemas, relations, select options, intake form, cover gallery, and artist list expected by the Worker:
