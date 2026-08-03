@@ -17,6 +17,8 @@ A small, self-hosted Cloudflare Worker for a shared Notion music library. Paste 
 
 Open your deployed Worker at its root URL (or `/search`) to find MusicBrainz albums as you type and add the selected result directly to the library. The page asks for your existing `SETUP_KEY` on each visit; it is kept only in that browser tab and all search/import API calls require it. No separate hosting service or Notion database change is needed.
 
+To place the search page on the library home page, use Notion's `/embed` command and paste your own deployed URL, such as `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search`. The Worker explicitly permits Notion to frame this page; other users must deploy their own Worker and use their own URL.
+
 ## Notion template
 
 Import [notion-template/Music Library.md](notion-template/Music%20Library.md), share the resulting page with your integration, and run the template installer. It creates the exact database schemas, relations, select options, intake form, cover gallery, and artist list expected by the Worker:

@@ -231,7 +231,7 @@ export function searchPage(): Response {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      "content-security-policy": "default-src 'self'; connect-src 'self'; img-src https://coverartarchive.org data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+      "content-security-policy": "default-src 'self'; connect-src 'self'; img-src https://coverartarchive.org data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors https://www.notion.so https://*.notion.so https://www.notion.com https://*.notion.com https://*.notion.site",
       "x-content-type-options": "nosniff",
     },
   });
