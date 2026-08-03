@@ -1,6 +1,7 @@
 # Notion Music Importer
 
 A small, self-hosted Cloudflare Worker for a shared Notion music library. Paste an Apple Music album URL, a MusicBrainz Release Group URL, or an album and artist. The Worker finds clean MusicBrainz metadata, artwork, and artist information, then creates or links the album in Notion.
+**Caution, Vibe Coded Stuff!**
 
 ## What it does
 
