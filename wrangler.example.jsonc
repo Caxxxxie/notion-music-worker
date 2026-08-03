@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "notion-music-importer",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "vars": {
+    "NOTION_VERSION": "2025-09-03",
+    "QUICK_IMPORT_DATA_SOURCE_ID": "REPLACE_WITH_QUICK_IMPORT_DATA_SOURCE_ID",
+    "ALBUM_DATA_SOURCE_ID": "REPLACE_WITH_ALBUM_DATA_SOURCE_ID",
+    "ARTIST_DATA_SOURCE_ID": "REPLACE_WITH_ARTIST_DATA_SOURCE_ID"
+  },
+  "kv_namespaces": [
+    { "binding": "WEBHOOK_STATE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
+  "triggers": { "crons": ["*/10 * * * *"] }
+}

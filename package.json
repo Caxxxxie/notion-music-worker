@@ -1,0 +1,38 @@
+{
+  "name": "notion-music-worker",
+  "version": "1.0.0",
+  "description": "A self-hosted Notion music library importer for Apple Music and MusicBrainz.",
+  "private": true,
+  "license": "MIT",
+  "author": "Caxxxxie",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Caxxxxie/notion-music-worker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Caxxxxie/notion-music-worker/issues"
+  },
+  "homepage": "https://github.com/Caxxxxie/notion-music-worker#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "setup:notion": "node scripts/setup-notion.mjs",
+    "types": "wrangler types --include-runtime=false",
+    "check": "tsc --noEmit",
+    "test": "tsc src/music.ts --outDir dist-test --module NodeNext --moduleResolution NodeNext --target ES2022 && node --test test/*.test.mjs",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260801.1",
+    "@types/node": "^24.1.0",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
+  }
+}

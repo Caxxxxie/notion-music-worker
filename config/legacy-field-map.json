@@ -1,0 +1,53 @@
+{
+  "quick": {
+    "title": "专辑名",
+    "artist": "歌手名",
+    "appleUrl": "Apple Music 链接",
+    "musicBrainzUrl": "MusicBrainz 链接",
+    "targetStatus": "目标状态",
+    "priority": "优先级",
+    "reason": "加入原因",
+    "confirm": "确认导入",
+    "processStatus": "处理状态",
+    "importedAlbum": "已导入专辑",
+    "submittedBy": "提交者",
+    "matchedTitle": "匹配专辑名",
+    "matchedArtist": "匹配歌手",
+    "matchedYear": "匹配年份",
+    "matchedMusicBrainz": "MusicBrainz 匹配",
+    "matchNote": "匹配说明"
+  },
+  "album": {
+    "title": "专辑名",
+    "artist": "歌手/乐队",
+    "musicBrainzId": "MusicBrainz ID",
+    "musicBrainzUrl": "MusicBrainz",
+    "sourceUrl": "来源链接",
+    "releaseDate": "发行日期",
+    "type": "类型",
+    "status": "状态",
+    "priority": "优先级",
+    "reason": "加入原因",
+    "addedBy": "加入者",
+    "cover": "封面"
+  },
+  "artist": {
+    "name": "名称",
+    "musicBrainzId": "MusicBrainz ID",
+    "musicBrainzUrl": "MusicBrainz",
+    "type": "类型",
+    "region": "国家/地区",
+    "activeYears": "活跃年代",
+    "bio": "简介",
+    "addedBy": "加入者"
+  },
+  "values": {
+    "pending": "待处理",
+    "needsConfirmation": "需要确认",
+    "imported": "已导入",
+    "ignored": "忽略",
+    "failed": "失败",
+    "wantToListen": "想听",
+    "mediumPriority": "中"
+  }
+}
