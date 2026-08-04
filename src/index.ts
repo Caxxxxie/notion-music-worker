@@ -39,6 +39,17 @@ function stringField(body: ApiBody, name: string, maxLength: number) {
   return typeof body[name] === "string" ? body[name].trim().slice(0, maxLength) : "";
 }
 
+function importErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.startsWith("Notion 401") || message.startsWith("Notion 403")) return "The Notion integration no longer has permission to edit this library.";
+  if (message.startsWith("Notion 404")) return "A configured Notion database could not be found.";
+  if (message.startsWith("Notion 400")) return "Notion rejected the album data. Check that the library schema still matches the template.";
+  if (message.startsWith("MusicBrainz")) return "MusicBrainz is temporarily unavailable. Try again in a moment.";
+  if (message.includes("artist for this album")) return "MusicBrainz did not return an artist for this album.";
+  if (message.includes("database does not match")) return "The Notion library schema does not match the configured template.";
+  return "The album could not be added. Try again in a moment.";
+}
+
 async function notion(env: WorkerEnv, path: string, init: RequestInit = {}) {
   const response = await fetch(`https://api.notion.com/v1${path}`, {
     ...init,
@@ -445,7 +456,8 @@ export default {
       } catch (error) {
         const message = error instanceof Error ? error.message : "request failed";
         console.error(JSON.stringify({ event: "search_ui_request_failed", path: url.pathname, error: message }));
-        return json({ error: message === "payload too large" ? message : "Request could not be completed" }, message === "payload too large" ? 413 : 502);
+        const status = message === "payload too large" ? 413 : 502;
+        return json({ error: message === "payload too large" ? message : url.pathname === "/api/import" ? importErrorMessage(error) : "Search could not be completed" }, status);
       }
       return json({ error: "not found" }, 404);
     }
