@@ -280,9 +280,15 @@ async function importSelectedMatch(env: WorkerEnv, fields: Schema, match: MbMatc
   if (!match.artistId) throw new Error("MusicBrainz did not return an artist for this album");
   const duplicate = await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.musicBrainzId, rich_text: { equals: match.id } });
   const existing = duplicate.results?.[0];
-  if (existing) return { id: existing.id, alreadyExists: true };
-
   const cover = await chooseCover("", match.id);
+  if (existing) {
+    if (cover) {
+      try { await patchPage(env, existing.id, {}, cover); }
+      catch (error) { console.warn(JSON.stringify({ event: "page_cover_update_failed", pageId: existing.id, error: String(error) })); }
+    }
+    return { id: existing.id, alreadyExists: true };
+  }
+
   // The MusicBrainz lookup that produced this match may have happened just
   // before this request. Pause before the artist lookup to respect its rate limit.
   await sleep(1100);
@@ -301,6 +307,15 @@ async function importSelectedMatch(env: WorkerEnv, fields: Schema, match: MbMatc
     [fields.album.reason]: richText(""), [fields.album.addedBy]: { people: [] },
     ...(cover ? { [fields.album.cover]: { files: [{ type: "external", name: "cover.jpg", external: { url: cover } }] } } : {}),
   }, coreProperties, cover);
+  if (cover) {
+    try {
+      // Notion occasionally retains the file property from a create request
+      // without applying its page-level cover. Set the page cover explicitly.
+      await patchPage(env, created.id, {}, cover);
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "page_cover_update_failed", pageId: created.id, error: String(error) }));
+    }
+  }
   return { id: created.id, alreadyExists: false };
 }
 

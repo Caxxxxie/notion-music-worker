@@ -8,8 +8,9 @@ const page = (embeddedSearch: boolean) => String.raw`<!doctype html>
   <style>
     :root { color: #18212b; background: #f4f5f2; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: #f4f5f2; }
-    main { width: 100%; max-width: none; margin: 0; padding: 28px 32px 48px; }
+    html, body { width: 100%; min-width: 0; }
+    body { margin: 0; min-height: 100vh; background: #f4f5f2; overflow-x: hidden; }
+    main { width: 100%; min-width: 0; max-width: none; margin: 0; padding: 24px; }
     header { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding-bottom: 22px; border-bottom: 1px solid #cfd7d2; }
     .eyebrow { margin: 0 0 7px; color: #0f766e; font-size: 0.78rem; font-weight: 750; letter-spacing: 0; text-transform: uppercase; }
     h1 { margin: 0; color: #18212b; font-size: 2rem; line-height: 1.05; font-weight: 760; letter-spacing: 0; }
@@ -28,27 +29,27 @@ const page = (embeddedSearch: boolean) => String.raw`<!doctype html>
     h2 { margin: 0; color: #18212b; font-size: 1rem; font-weight: 740; letter-spacing: 0; }
     .status { min-height: 1.3rem; margin: 0; color: #596571; font-size: 0.88rem; text-align: right; }
     .status.error { color: #a32424; }
-    .results { display: grid; width: 100%; gap: 10px; padding: 0; margin: 0; list-style: none; }
-    .result { display: grid; grid-template-columns: 76px minmax(0, 1fr) 40px; width: 100%; align-items: center; gap: 16px; min-height: 100px; padding: 12px; border: 1px solid #cfd7d2; border-radius: 6px; background: #ffffff; }
-    .art { width: 76px; height: 76px; border-radius: 4px; background: #dce6df; object-fit: cover; }
-    .details { min-width: 0; }
+    .results { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 10px; padding: 0; margin: 0; list-style: none; }
+    .result { display: flex; width: 100%; min-width: 0; align-items: center; gap: 16px; min-height: 112px; padding: 12px; border: 1px solid #cfd7d2; border-radius: 6px; background: #ffffff; }
+    .art { flex: 0 0 88px; width: 88px; height: 88px; border-radius: 4px; background: #dce6df; object-fit: cover; }
+    .details { flex: 1 1 auto; min-width: 0; }
     .details h3 { margin: 0; color: #18212b; font-size: 1rem; font-weight: 720; letter-spacing: 0; line-height: 1.35; overflow-wrap: anywhere; }
     .details p { margin: 5px 0 0; color: #596571; font-size: 0.88rem; line-height: 1.45; overflow-wrap: anywhere; }
-    .add { width: 40px; min-width: 40px; min-height: 40px; height: 40px; padding: 0; border-color: #a32424; border-radius: 50%; background: #a32424; font-size: 1.4rem; line-height: 1; }
+    .add { flex: 0 0 40px; width: 40px; min-width: 40px; min-height: 40px; height: 40px; padding: 0; border-color: #a32424; border-radius: 50%; background: #a32424; font-size: 1.4rem; line-height: 1; }
     .add:hover { background: #821a1a; }
     .add.added { font-size: 0.7rem; }
     .empty { padding: 26px 0; color: #596571; font-size: 0.92rem; text-align: center; }
     [hidden] { display: none !important; }
     @media (max-width: 620px) {
-      main { padding: 20px 12px 32px; }
+      main { padding: 16px 12px 28px; }
       header { display: block; }
       .connection { margin-top: 10px; text-align: left; }
       .access, .search-grid { grid-template-columns: 1fr; }
       .results-heading { align-items: start; flex-direction: column; gap: 3px; }
       .status { text-align: left; }
-      .result { grid-template-columns: 58px minmax(0, 1fr) 36px; gap: 10px; min-height: 82px; padding: 9px; }
-      .art { width: 58px; height: 58px; }
-      .add { width: 36px; min-width: 36px; min-height: 36px; height: 36px; }
+      .result { gap: 10px; min-height: 82px; padding: 9px; }
+      .art { flex-basis: 58px; width: 58px; height: 58px; }
+      .add { flex-basis: 36px; width: 36px; min-width: 36px; min-height: 36px; height: 36px; }
     }
   </style>
 </head>
