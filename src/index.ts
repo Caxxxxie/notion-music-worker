@@ -267,7 +267,9 @@ async function ensureArtist(env: WorkerEnv, fields: Schema, mbid: string, prefer
 async function schemaForLibrary(env: WorkerEnv): Promise<Schema> {
   for (const fields of schemaCandidates(env)) {
     try {
-      await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.musicBrainzId, rich_text: { is_not_empty: true } }, 1);
+      // MusicBrainz ID is shared by the English and legacy Chinese schemas.
+      // The title property is distinct, so use it to select the correct map.
+      await query(env, env.ALBUM_DATA_SOURCE_ID, { property: fields.album.title, title: { is_not_empty: true } }, 1);
       return fields;
     } catch { /* The library uses another supported schema. */ }
   }
