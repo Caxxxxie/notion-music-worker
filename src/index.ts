@@ -43,11 +43,15 @@ function importErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   if (message.startsWith("Notion 401") || message.startsWith("Notion 403")) return "The Notion integration no longer has permission to edit this library.";
   if (message.startsWith("Notion 404")) return "A configured Notion database could not be found.";
-  if (message.startsWith("Notion 400")) return "Notion rejected the album data. Check that the library schema still matches the template.";
+  if (message.startsWith("Notion 400")) return `Notion rejected the album data: ${message.slice("Notion 400:".length).trim().slice(0, 500)}`;
   if (message.startsWith("MusicBrainz")) return "MusicBrainz is temporarily unavailable. Try again in a moment.";
   if (message.includes("artist for this album")) return "MusicBrainz did not return an artist for this album.";
   if (message.includes("database does not match")) return "The Notion library schema does not match the configured template.";
   return "The album could not be added. Try again in a moment.";
+}
+
+function isNotionValidationError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("Notion 400:");
 }
 
 async function notion(env: WorkerEnv, path: string, init: RequestInit = {}) {
@@ -68,6 +72,16 @@ async function query(env: WorkerEnv, dataSourceId: string, filter: unknown, page
 }
 async function createPage(env: WorkerEnv, dataSourceId: string, properties: Record<string, unknown>, cover?: string) {
   return notion(env, "/pages", { method: "POST", body: JSON.stringify({ parent: { type: "data_source_id", data_source_id: dataSourceId }, properties, ...(cover ? { cover: { type: "external", external: { url: cover } } } : {}) }) }) as Promise<{ id: string }>;
+}
+
+async function createPageWithSchemaFallback(env: WorkerEnv, dataSourceId: string, properties: Record<string, unknown>, fallbackProperties: Record<string, unknown>, cover?: string) {
+  try {
+    return await createPage(env, dataSourceId, properties, cover);
+  } catch (error) {
+    if (!isNotionValidationError(error)) throw error;
+    console.warn(JSON.stringify({ event: "notion_optional_properties_rejected", dataSourceId, error: error.message }));
+    return createPage(env, dataSourceId, fallbackProperties);
+  }
 }
 
 async function readTextLimited(body: ReadableStream<Uint8Array> | null, maxBytes = 8_000_000): Promise<{ text: string; truncated: boolean }> {
@@ -237,14 +251,17 @@ async function ensureArtist(env: WorkerEnv, fields: Schema, mbid: string, prefer
   if (existing.results?.[0]) return existing.results[0].id;
   const artist = await getArtist(env, mbid);
   const span = [artist["life-span"]?.begin, artist["life-span"]?.end].filter(Boolean).join("–");
-  const created = await createPage(env, env.ARTIST_DATA_SOURCE_ID, {
+  const coreProperties: Record<string, unknown> = {
     [fields.artist.name]: title(preferredName || artist.name), [fields.artist.musicBrainzId]: richText(mbid),
     [fields.artist.musicBrainzUrl]: { url: `https://musicbrainz.org/artist/${mbid}` },
+  };
+  const created = await createPageWithSchemaFallback(env, env.ARTIST_DATA_SOURCE_ID, {
+    ...coreProperties,
     [fields.artist.type]: { select: { name: artistType(artist.type, artist.name) } },
     [fields.artist.region]: richText(artist.area?.name || artist.country || ""),
     [fields.artist.activeYears]: richText(span), [fields.artist.bio]: richText(`Basic metadata for ${artist.name} comes from MusicBrainz.`),
     [fields.artist.addedBy]: { people },
-  }); return created.id;
+  }, coreProperties); return created.id;
 }
 
 async function schemaForLibrary(env: WorkerEnv): Promise<Schema> {
@@ -268,17 +285,20 @@ async function importSelectedMatch(env: WorkerEnv, fields: Schema, match: MbMatc
   // before this request. Pause before the artist lookup to respect its rate limit.
   await sleep(1100);
   const artistId = await ensureArtist(env, fields, match.artistId, match.artist, []);
-  const created = await createPage(env, env.ALBUM_DATA_SOURCE_ID, {
+  const coreProperties: Record<string, unknown> = {
     [fields.album.title]: title(match.title), [fields.album.artist]: { relation: [{ id: artistId }] },
     [fields.album.musicBrainzId]: richText(match.id), [fields.album.musicBrainzUrl]: { url: `https://musicbrainz.org/release-group/${match.id}` },
     [fields.album.sourceUrl]: { url: `https://musicbrainz.org/release-group/${match.id}` },
+  };
+  const created = await createPageWithSchemaFallback(env, env.ALBUM_DATA_SOURCE_ID, {
+    ...coreProperties,
     [fields.album.releaseDate]: match.firstReleaseDate ? { date: { start: match.firstReleaseDate } } : { date: null },
     [fields.album.type]: { select: { name: albumType(match.primaryType) } },
     [fields.album.status]: { select: { name: fields.values.wantToListen } },
     [fields.album.priority]: { select: { name: fields.values.mediumPriority } },
     [fields.album.reason]: richText(""), [fields.album.addedBy]: { people: [] },
     ...(cover ? { [fields.album.cover]: { files: [{ type: "external", name: "cover.jpg", external: { url: cover } }] } } : {}),
-  }, cover);
+  }, coreProperties, cover);
   return { id: created.id, alreadyExists: false };
 }
 
