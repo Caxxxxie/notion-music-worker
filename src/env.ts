@@ -1,6 +1,7 @@
 export type WorkerSecrets = {
   NOTION_TOKEN: string;
   SETUP_KEY: string;
+  SEARCH_EMBED_TOKEN?: string;
   FIELD_MAP_JSON?: string;
 };
 

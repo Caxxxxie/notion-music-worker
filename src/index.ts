@@ -188,6 +188,11 @@ async function secretEquals(actual: string, expected: string): Promise<boolean> 
   return crypto.subtle.timingSafeEqual(actualHash, expectedHash);
 }
 
+async function validSearchEmbedToken(supplied: string, env: WorkerEnv): Promise<boolean> {
+  const token = env.SEARCH_EMBED_TOKEN;
+  return token ? secretEquals(supplied, token) : false;
+}
+
 function artistCredit(row: Record<string, unknown>) {
   const credit = row["artist-credit"] as Array<{ name?: string; artist?: { id?: string; name?: string } }> | undefined;
   return { name: credit?.map(x => x.name ?? x.artist?.name ?? "").filter(Boolean).join(", ") ?? "", id: credit?.[0]?.artist?.id ?? "" };
@@ -401,12 +406,27 @@ async function verifySignature(raw: string, signature: string, token: string) {
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "GET" && ["/", "/search"].includes(url.pathname)) return searchPage();
+    if (request.method === "GET" && ["/", "/search"].includes(url.pathname)) {
+      const suppliedToken = url.searchParams.get("token") ?? "";
+      const requestedEmbedAccess = url.searchParams.has("token");
+      const embeddedSearch = requestedEmbedAccess && await validSearchEmbedToken(suppliedToken, env);
+      if (requestedEmbedAccess && !embeddedSearch) return new Response("Unauthorized", { status: 401, headers: { "cache-control": "no-store" } });
+      return searchPage(embeddedSearch);
+    }
     if (request.method === "GET" && url.pathname === "/health") return json({ ok: true, service: "notion-music-importer" });
     if (request.method === "POST" && url.pathname.startsWith("/api/")) {
-      const supplied = request.headers.get("x-setup-key") ?? "";
-      if (!(await secretEquals(supplied, env.SETUP_KEY))) return json({ error: "invalid library key" }, 403);
-      if (url.pathname === "/api/session") return json({ ok: true });
+      const suppliedSetupKey = request.headers.get("x-setup-key") ?? "";
+      const suppliedSearchToken = request.headers.get("x-search-embed-token") ?? "";
+      const [hasSetupAccess, hasSearchAccess] = await Promise.all([
+        secretEquals(suppliedSetupKey, env.SETUP_KEY), validSearchEmbedToken(suppliedSearchToken, env),
+      ]);
+      if (url.pathname === "/api/session") {
+        if (!hasSetupAccess) return json({ error: "invalid library key" }, 403);
+        return json({ ok: true });
+      }
+      const embedAllowedPath = ["/api/search", "/api/import"].includes(url.pathname);
+      if (embedAllowedPath && !hasSetupAccess && !hasSearchAccess) return json({ error: "invalid library token" }, 403);
+      if (!embedAllowedPath && !hasSetupAccess) return json({ error: "invalid library key" }, 403);
       try {
         const body = await readApiBody(request);
         if (url.pathname === "/api/search") {

@@ -19,6 +19,15 @@ Open your deployed Worker at its root URL (or `/search`) to find MusicBrainz alb
 
 To place the search page on the library home page, use Notion's `/embed` command and paste your own deployed URL, such as `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search`. The Worker explicitly permits Notion to frame this page; other users must deploy their own Worker and use their own URL.
 
+For a password-free embedded search and import experience, create a dedicated embed token and store it as a Worker secret:
+
+```bash
+openssl rand -hex 32
+npx wrangler secret put SEARCH_EMBED_TOKEN
+```
+
+Then embed `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search?token=YOUR_SEARCH_EMBED_TOKEN`. This token unlocks search and adding selected albums, but cannot access Worker administration or webhook endpoints. Anyone who can view the Notion page can copy the embed URL and add albums, so do not share that page with untrusted guests.
+
 ## Notion template
 
 Import [notion-template/Music Library.md](notion-template/Music%20Library.md), share the resulting page with your integration, and run the template installer. It creates the exact database schemas, relations, select options, intake form, cover gallery, and artist list expected by the Worker:

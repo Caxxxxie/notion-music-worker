@@ -8,7 +8,7 @@ Use the **Add an album** form after setup. Paste an Apple Music album URL, a Mus
 
 ## Interactive search
 
-After deploying your Worker, add an Embed block here with your own `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search` URL. Enter your `SETUP_KEY` in the embedded page, search MusicBrainz, and select an album to add it directly to this library.
+After deploying your Worker, add an Embed block here with your own `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search?token=YOUR_SEARCH_EMBED_TOKEN` URL. The dedicated token unlocks search and adding selected albums automatically. Anyone who can view this page can copy the URL and add albums to the library.
 
 ## Browse
 

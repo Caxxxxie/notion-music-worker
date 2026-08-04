@@ -23,11 +23,20 @@ The command creates:
 
 After the Worker is deployed, open the imported **Music Library** page and replace the placeholder under **Interactive search** with an Embed block. Paste your own Worker URL with `/search`, for example:
 
-```text
-https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search
+Create a dedicated search-and-import token before embedding:
+
+```bash
+openssl rand -hex 32
+npx wrangler secret put SEARCH_EMBED_TOKEN
 ```
 
-The embedded page asks for the same `SETUP_KEY` configured for the Worker. It searches MusicBrainz as you type and creates the chosen album in the existing library. The Worker allows Notion domains to frame this page, but the template cannot include a working URL in advance because each deployment has its own subdomain.
+Then paste your own URL with that token:
+
+```text
+https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/search?token=YOUR_SEARCH_EMBED_TOKEN
+```
+
+The embedded page searches MusicBrainz and can create the chosen album automatically. This token is accepted only by the search and import APIs; it cannot access Worker administration or webhook endpoints. Anyone who can view the Notion page can copy the embed URL and add albums, so do not share that page with untrusted guests. The Worker allows Notion domains to frame this page, but the template cannot include a working URL in advance because each deployment has its own subdomain.
 
 At the end, the command prints the three data source IDs to place in the ignored `wrangler.jsonc` file. The installer never prints or writes the Notion token.
 

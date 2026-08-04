@@ -1,4 +1,4 @@
-const page = String.raw`<!doctype html>
+const page = (embeddedSearch: boolean) => String.raw`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -59,7 +59,7 @@ const page = String.raw`<!doctype html>
       <p id="connection" class="connection" aria-live="polite">Locked</p>
     </header>
 
-    <section id="access-panel" class="access" aria-label="Library access">
+    <section id="access-panel" class="access" aria-label="Library access"${embeddedSearch ? " hidden" : ""}>
       <label>Library key<input id="library-key" type="password" autocomplete="current-password" spellcheck="false"></label>
       <button id="unlock" type="button">Unlock</button>
     </section>
@@ -87,10 +87,12 @@ const page = String.raw`<!doctype html>
       const artistInput = document.querySelector("#artist");
       const status = document.querySelector("#status");
       const results = document.querySelector("#results");
+      const searchToken = ${embeddedSearch} ? new URLSearchParams(window.location.search).get("token") || "" : "";
       let key = "";
       let searchTimer;
       let searchRequest;
       let lastSearchAt = 0;
+      let pendingImport;
 
       function setStatus(message, error = false) {
         status.textContent = message;
@@ -100,7 +102,11 @@ const page = String.raw`<!doctype html>
       async function api(path, body, signal) {
         const response = await fetch(path, {
           method: "POST",
-          headers: { "content-type": "application/json", "x-setup-key": key },
+          headers: {
+            "content-type": "application/json",
+            ...(key ? { "x-setup-key": key } : {}),
+            ...(searchToken ? { "x-search-embed-token": searchToken } : {}),
+          },
           body: body ? JSON.stringify(body) : undefined,
           cache: "no-store",
           signal,
@@ -182,6 +188,13 @@ const page = String.raw`<!doctype html>
       }
 
       async function importMatch(match, button) {
+        if (!key && !searchToken) {
+          pendingImport = { match, button };
+          accessPanel.hidden = false;
+          connection.textContent = "Unlock writing";
+          keyInput.focus();
+          return;
+        }
         button.disabled = true;
         setStatus("Adding " + match.title);
         try {
@@ -209,7 +222,11 @@ const page = String.raw`<!doctype html>
           accessPanel.hidden = true;
           searchPanel.hidden = false;
           connection.textContent = "Ready";
-          albumInput.focus();
+          if (pendingImport) {
+            const { match, button } = pendingImport;
+            pendingImport = undefined;
+            void importMatch(match, button);
+          } else albumInput.focus();
         } catch (error) {
           key = "";
           connection.textContent = error.message || "Access denied";
@@ -221,14 +238,20 @@ const page = String.raw`<!doctype html>
       keyInput.addEventListener("keydown", event => { if (event.key === "Enter") unlock.click(); });
       albumInput.addEventListener("input", scheduleSearch);
       artistInput.addEventListener("input", scheduleSearch);
+      if (${embeddedSearch}) {
+        accessPanel.hidden = true;
+        searchPanel.hidden = false;
+        connection.textContent = "Ready";
+        albumInput.focus();
+      }
     })();
   </script>
 </body>
 </html>`;
 
-export function searchPage(): Response {
-  return new Response(page, {
-    headers: {
+export function searchPage(embeddedSearch = false): Response {
+  return new Response(page(embeddedSearch), {
+          headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
       "content-security-policy": "default-src 'self'; connect-src 'self'; img-src https://coverartarchive.org data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors https://www.notion.so https://*.notion.so https://www.notion.com https://*.notion.com https://*.notion.site",
